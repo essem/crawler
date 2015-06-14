@@ -1,0 +1,252 @@
+<script>
+var async = require('async')
+var fs = require('fs')
+var cheerio = require('cheerio')
+var request = require('request')
+var url = require('url')
+window.$ = window.jQuery = require('jquery');
+</script>
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Image Crawler</title>
+    <link rel="stylesheet" href="node_modules/bootstrap/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="node_modules/bootstrap/dist/js/bootstrap.min.js"></script>
+  </head>
+  <body>
+    <form class="form-horizontal">
+      <div class="form-group">
+        <label for="targetUrl" class="col-sm-3 control-label">URL</label>
+        <div class="col-sm-9">
+          <input type="text" id="targetUrl" class="form-control" value="">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="albumSelector" class="col-sm-3 control-label">Album selector</label>
+        <div class="col-sm-3">
+          <input type="text" id="albumSelector" class="form-control" value="">
+        </div>
+        <label for="imageSelector" class="col-sm-3 control-label">Image selector</label>
+        <div class="col-sm-3">
+          <input type="text" id="imageSelector" class="form-control" value="">
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="downloadFolder" class="col-sm-3 control-label">Download folder</label>
+        <div class="col-sm-3">
+          <input type="text" id="downloadFolder" class="form-control" value="download">
+        </div>
+        <label for="maxConnection" class="col-sm-3 control-label">Max connection</label>
+        <div class="col-sm-3">
+          <input type="text" id="maxConnection" class="form-control" value="8">
+        </div>
+      </div>
+      <div class="form-group">
+        <div class="col-sm-offset-3 col-sm-9">
+          <button type="button" id="go" class="btn btn-primary">Go!</button>
+          <button type="button" id="stop" class="btn btn-danger" style="display:none">Stop!</button>
+        </div>
+      </div>
+    </form>
+    <div id="log" class="alert alert-danger" style="display:none">
+    </div>
+    <div id="downloadList" class="row">
+    </div>
+  </body>
+</html>
+
+<script>
+var stop = false
+
+$('#go').on('click', function() {
+  stop = false
+  $('#stop').show()
+  go()
+})
+
+$('#stop').on('click', function() {
+  stop = true
+})
+
+function makeAbsoluteUrl(orgUrl, refUrl) {
+  var parsedOrgUrl = url.parse(orgUrl)
+  if (parsedOrgUrl.host != null) {
+    return orgUrl
+  }
+
+  var parsedRefUrl = url.parse(refUrl)
+  parsedOrgUrl.protocol = parsedRefUrl.protocol
+  parsedOrgUrl.host = parsedRefUrl.host
+  return url.format(parsedOrgUrl)
+}
+
+function download(albumIndex, imageIndex, filename, imageUrl, cb) {
+  console.log('download image from:', imageUrl)
+
+  if (stop) {
+    return cb(new Error('Stopped'))
+  }
+
+  var elemId = "a" + albumIndex + "i" + imageIndex
+  var elem = $('#' + elemId)
+
+  if (fs.existsSync(filename)) {
+    elem.addClass('exist')
+    cb(null)
+    return
+  }
+
+  elem.addClass('downloading')
+
+  var ostream = fs.createWriteStream(filename)
+  ostream.on('close', function () {
+    elem.removeClass('downloading')
+    elem.addClass('downloaded')
+    cb(null)
+  })
+  ostream.on('error', function (err) {
+    elem.removeClass('downloading')
+    elem.addClass('error')
+    fs.unlinkSync(filename)
+    cb(err)
+  })
+  request.get(imageUrl)
+    .on('error', function(err) {
+      elem.removeClass('downloading')
+      elem.addClass('error')
+      fs.unlinkSync(filename)
+      cb(err)
+    })
+    .pipe(ostream)
+}
+
+function fakeDownload(albumIndex, imageIndex, filename, imageUrl, cb) {
+  console.log('download image from:', imageUrl)
+
+  if (stop) {
+    return cb(new Error('Stopped'))
+  }
+
+  var elemId = "a" + albumIndex + "i" + imageIndex
+  var elem = $('#' + elemId)
+
+  elem.addClass('downloading')
+
+  setTimeout(function() {
+    elem.removeClass('downloading')
+    elem.addClass('downloaded')
+    cb(null)
+  }, 200)
+}
+
+function getImageList(album, selector, cb) {
+  console.log('download images from:', album.url)
+
+  if (stop) {
+    return cb(new Error('Stopped'))
+  }
+
+  async.waterfall([
+    function(next) {
+      request(album.url, next)
+    },
+    function(res, body, next) {
+      if (res.statusCode != 200) {
+        next(new Error('HTTP status code: ' + res.statusCode))
+        return
+      }
+
+      var dom = cheerio.load(body)
+      album.images = dom(selector).toArray().map(function(img) {
+        return makeAbsoluteUrl(img.attribs.src, album.url)
+      })
+
+      var html = album.images.map(function(image, index) {
+        var filename = image.substr(image.lastIndexOf('/') + 1)
+        var elemId = "a" + album.index + "i" + index
+        return '<span id="' + elemId + '" data-toggle="tooltip" data-placement="top" title="' + filename + '"></span>'
+      }).join('')
+      $('#album' + album.index).html(html)
+      $('#album' + album.index + ' span').tooltip()
+
+      next(null)
+    }
+  ], cb)
+}
+
+function go() {
+  var outdir = $('#downloadFolder').val()
+  var targetUrl = $('#targetUrl').val()
+  var albumSelector = $('#albumSelector').val()
+  var imageSelector = $('#imageSelector').val()
+  var maxConnection = $('#maxConnection').val()
+
+  if (!fs.existsSync(outdir)) {
+    fs.mkdirSync(outdir)
+  }
+
+  $('#log').hide()
+  $('#downloadList').empty()
+
+  console.log('download albums from:', targetUrl)
+
+  async.waterfall([
+    function(next) {
+      request(targetUrl, next)
+    },
+    function(res, body, next) {
+      if (res.statusCode != 200) {
+        next(new Error('HTTP status code: ' + res.statusCode))
+        return
+      }
+
+      var dom = cheerio.load(body)
+      var albums = dom(albumSelector).toArray().map(function(album, index) {
+        return {
+          index: index,
+          name: album.children[0].data,
+          url: makeAbsoluteUrl(album.attribs.href, targetUrl)
+        }
+      })
+
+      var html = albums.map(function(album) {
+        return '<div class="row">'
+             + '<div class="col-sm-3 albumTitle">' + album.name + '</div>'
+             + '<div class="col-sm-9" id="album' + album.index + '">'
+             + '</div>'
+             + '</div>'
+      }).join('')
+      $('#downloadList').append(html)
+
+      async.eachLimit(albums, maxConnection, function(album, next) {
+        getImageList(album, imageSelector, next)
+      }, function(err) {
+        if (err) {
+          next(err)
+        } else {
+          next(null, albums)
+        }
+      })
+    },
+    function(albums, next) {
+      async.eachSeries(albums, function(album, next) {
+        var albumOutDir = outdir + '/' + album.name
+        if (!fs.existsSync(albumOutDir)) {
+          fs.mkdirSync(albumOutDir)
+        }
+
+        async.forEachOfLimit(album.images, maxConnection, function(image, index, next) {
+          var filename = image.substr(image.lastIndexOf('/') + 1)
+          download(album.index, index, albumOutDir + '/' + filename, image, next)
+        }, next)
+      }, next)
+    }
+  ], function(err) {
+    $('#stop').hide()
+    $('#log').show()
+    $('#log').html(err ? err : 'Complete')
+  })
+}
+</script>

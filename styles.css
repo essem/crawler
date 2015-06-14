@@ -1,0 +1,52 @@
+body {
+  margin: 0px;
+  padding: 0px;
+  font-family: 'Malgun Gothic'
+}
+
+form {
+  padding: 20px;
+  background-color: #83CCFE;
+}
+
+#log {
+  margin-left: 20px;
+  margin-right: 20px;
+}
+
+#downloadList {
+  padding: 20px;
+}
+
+#downloadList .row {
+  margin-bottom: 5px;
+}
+
+#downloadList .albumTitle {
+  text-align: right;
+}
+
+#downloadList span {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  margin-right: 5px;
+  margin-bottom: 5px;
+  background-color: #A4A8AA;
+}
+
+#downloadList span.exist {
+  background-color: #BD87FE;
+}
+
+#downloadList span.downloading {
+  background-color: #E7CC40;
+}
+
+#downloadList span.downloaded {
+  background-color: #A6D55E;
+}
+
+#downloadList span.error {
+  background-color: red;
+}
