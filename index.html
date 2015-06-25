@@ -4,6 +4,7 @@ var fs = require('fs')
 var cheerio = require('cheerio')
 var request = require('request')
 var url = require('url')
+var CSON = require('CSON')
 window.$ = window.jQuery = require('jquery');
 </script>
 
@@ -17,6 +18,12 @@ window.$ = window.jQuery = require('jquery');
   </head>
   <body>
     <form class="form-horizontal">
+      <div class="form-group">
+        <label for="presets" class="col-sm-3 control-label">Presets</label>
+        <div class="col-sm-9">
+          <select id="presets" class="form-control"></select>
+        </div>
+      </div>
       <div class="form-group">
         <label for="targetUrl" class="col-sm-3 control-label">URL</label>
         <div class="col-sm-9">
@@ -59,6 +66,25 @@ window.$ = window.jQuery = require('jquery');
 
 <script>
 var stop = false
+
+var presets = {}
+if (fs.existsSync('presets.cson')) {
+  presets = CSON.parseFile('presets.cson')
+  $('#presets').append($('<option>', { value: '', text: '' }))
+  $.each(presets, function (key, item) {
+    $('#presets').append($('<option>', {
+        value: key,
+        text: key + '  -  ' + item.url
+    }))
+  })
+
+  $('#presets').change(function() {
+    var selected = presets[$(this).val()]
+    $('#targetUrl').val(selected.url)
+    $('#albumSelector').val(selected.album_selector)
+    $('#imageSelector').val(selected.image_selector)
+  })
+}
 
 $('#go').on('click', function() {
   stop = false
