@@ -4,7 +4,7 @@ var fs = require('fs')
 var cheerio = require('cheerio')
 var request = require('request')
 var url = require('url')
-var CSON = require('CSON')
+var CSON = require('cson')
 window.$ = window.jQuery = require('jquery');
 </script>
 
@@ -97,6 +97,10 @@ $('#stop').on('click', function() {
 })
 
 function makeAbsoluteUrl(orgUrl, refUrl) {
+  if (orgUrl == undefined) {
+    return undefined;
+  }
+
   var parsedOrgUrl = url.parse(orgUrl)
   if (parsedOrgUrl.host != null) {
     return orgUrl
@@ -185,7 +189,9 @@ function getImageList(album, selector, cb) {
       }
 
       var dom = cheerio.load(body)
-      album.images = dom(selector).toArray().map(function(img) {
+      album.images = dom(selector).toArray().filter(function(img) {
+        return img.attribs.src !== undefined;
+      }).map(function(img) {
         return makeAbsoluteUrl(img.attribs.src, album.url)
       })
 
