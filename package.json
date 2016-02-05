@@ -2,12 +2,18 @@
   "name": "crawler",
   "version": "0.1.0",
   "main": "main.js",
+  "scripts": {
+    "start": "electron main.js",
+    "zip": "node zip.js"
+  },
   "dependencies": {
     "async": "^1.2.1",
     "bootstrap": "^3.3.4",
     "cheerio": "^0.19.0",
     "cson": "^3.0.2",
+    "electron-prebuilt": "^0.36.7",
     "jquery": "^2.1.4",
+    "jszip": "^2.5.0",
     "request": "^2.57.0"
   }
 }
