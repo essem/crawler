@@ -180,14 +180,9 @@ function getImageList(album, selector, cb) {
 
   async.waterfall([
     function(next) {
-      request(album.url, next)
+      fetch(album.url).then(res => res.text()).then(body => next(null, body));
     },
-    function(res, body, next) {
-      if (res.statusCode != 200) {
-        next(new Error('HTTP status code: ' + res.statusCode))
-        return
-      }
-
+    function(body, next) {
       var dom = cheerio.load(body)
       album.images = dom(selector).toArray().filter(function(img) {
         return img.attribs.src !== undefined;
